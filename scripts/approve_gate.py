@@ -1,47 +1,45 @@
+"""Starter gate script, extended: it now goes through the orchestrator, so a decision
+is only accepted at the matching WAITING_* status, needs a reason and a name/role,
+and is written as numbered evidence (02-/04-...).
+
+  python scripts/approve_gate.py CR-001 plan APPROVED "Plan reviewed" --by "Ana / Tech Lead"
+  python scripts/approve_gate.py CR-005 requirements APPROVED "<policy>" --by "Luis / PO"
+
+Equivalent to `scripts/factory.py approve|clarify`; review/release use `factory decide|release`.
+"""
+
 from __future__ import annotations
 
-import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.factory import main as factory_main  # noqa: E402
+
 VALID_GATES = {"requirements", "plan", "review", "release"}
-VALID_DECISIONS = {"APPROVED", "MODIFIED", "REJECTED", "DEFERRED"}
 
 
-def main() -> None:
-    if len(sys.argv) < 5:
-        raise SystemExit('Usage: python scripts/approve_gate.py CR-001 plan APPROVED "reason"')
-    change_id = sys.argv[1].upper()
-    gate = sys.argv[2].lower()
-    decision = sys.argv[3].upper()
-    reason = " ".join(sys.argv[4:]).strip()
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    by = ""
+    if "--by" in argv:
+        i = argv.index("--by")
+        by = " ".join(argv[i + 1:i + 2])
+        del argv[i:i + 2]
+    if len(argv) < 4 or not by:
+        raise SystemExit('Usage: python scripts/approve_gate.py CR-001 plan APPROVED "reason" '
+                         '--by "<name / role>"')
+    change_id, gate, decision, reason = argv[0], argv[1].lower(), argv[2].upper(), \
+        " ".join(argv[3:])
     if gate not in VALID_GATES:
         raise SystemExit(f"Invalid gate: {sorted(VALID_GATES)}")
-    if decision not in VALID_DECISIONS:
-        raise SystemExit(f"Invalid decision: {sorted(VALID_DECISIONS)}")
-    if not reason:
-        raise SystemExit("Human decision requires a reason")
-    run = ROOT / "runs" / change_id
-    state_path = run / "factory-state.json"
-    if not state_path.exists():
-        raise SystemExit(f"Run not found: {change_id}")
-    state = json.loads(state_path.read_text(encoding="utf-8"))
-    state["human_gates"][gate] = decision
-    state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
-    evidence = {
-        "change_id": change_id,
-        "gate": gate,
-        "decision": decision,
-        "reason": reason,
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
-        "recorded_by": "TODO: student name / role",
-    }
-    path = run / f"human-{gate}-decision.json"
-    path.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
-    print(f"Recorded {gate}: {decision} -> {path.relative_to(ROOT)}")
+    if gate == "plan":
+        return factory_main(["approve", change_id, "plan", decision, reason, "--by", by])
+    if gate == "requirements":
+        return factory_main(["clarify", change_id, reason, "--by", by, "--decision", decision])
+    raise SystemExit(f"Gate '{gate}': use `factory decide` / `factory release`")
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

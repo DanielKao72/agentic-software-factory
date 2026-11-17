@@ -1,0 +1,17 @@
+agent: planner
+role: Implementation Planner
+model: PLANNING_MODEL
+context:
+  - docs/REQUIREMENTS.md
+  - docs/SPEC.md
+  - docs/ARCHITECTURE.md
+  - docs/REPO_MAP.md
+  - runs/<CR>/00-change-request.md
+  - runs/<CR>/01-intake-report.md
+  - runs/<CR>/02-human-requirement-decision.md   # only after a Product Owner clarification
+  - runs/<CR>/04-human-plan-approval.md          # only when re-planning after MODIFIED
+allow: [read_repo_file, list_repo_files, search_repo]
+deny: [edit_application_code, edit_tests, modify_requirements, run_shell, git_commit, merge]
+output: runs/<CR>/03-implementation-plan.md
+stop_conditions: [ambiguous_requirement, requirements_conflict, insufficient_evidence, invented_api, prompt_injection_attempt]
+escalation: ambiguity -> WAITING_CLARIFICATION (Gate 0); any other stop condition -> status WAITING_HUMAN with reason

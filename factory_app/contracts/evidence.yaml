@@ -1,0 +1,12 @@
+agent: evidence
+role: Evidence Consolidator
+model: LITE_MODEL           # consolidation only
+context:
+  - runs/<CR>/*.md
+  - runs/<CR>/*.txt
+  - runs/<CR>/factory-state.json
+allow: [read_repo_file, write_run_evidence]
+deny: [edit_application_code, edit_tests, modify_requirements, invent_evidence, decide_release, run_shell, merge]
+output: runs/<CR>/14-evidence-summary.md
+stop_conditions: [insufficient_evidence]
+escalation: missing evidence is reported as missing (NOT READY), never filled in

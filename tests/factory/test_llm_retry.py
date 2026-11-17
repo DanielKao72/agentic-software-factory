@@ -86,6 +86,37 @@ def test_503_overload_wrapped_by_adk_is_retried_and_labelled():
     assert retries[0]["error"] == "503"
 
 
+def test_daily_quota_pauses_immediately_instead_of_retrying():
+    body = {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "details": [
+        {"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [
+            {"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}
+    calls = []
+
+    def daily():
+        calls.append(1)
+        raise ClientError(429, body)
+
+    with pytest.raises(RateLimitExhausted, match="daily quota"):
+        call_with_retry(daily, sleep=lambda _: None)
+    assert len(calls) == 1
+
+
+def test_per_minute_quota_is_retried_and_quota_id_logged():
+    body = {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "details": [
+        {"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [
+            {"quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]}]}}
+    calls, retries = [], []
+
+    def per_minute_once():
+        calls.append(1)
+        if len(calls) == 1:
+            raise ClientError(429, body)
+        return "ok"
+
+    call_with_retry(per_minute_once, on_retry=retries.append, sleep=lambda _: None)
+    assert retries[0]["quota"].startswith("GenerateRequestsPerMinute")
+
+
 def test_non_429_errors_are_not_retried():
     calls = []
 

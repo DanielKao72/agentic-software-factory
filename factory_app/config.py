@@ -16,17 +16,26 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(REPO_ROOT / ".env", override=False)
 
 # --- Models -----------------------------------------------------------------
-# Verified with models.list on 2026-11-17: gemini-3.8-flash exists; the newest
-# text Flash-Lite is gemini-3.5-flash-lite (there is no 3.8 Flash-Lite).
+# Verified with models.list on 2026-11-17. The Gemini free tier caps each model at a
+# small number of requests per day (gemini-3.8-flash: 20/day), and one full CR run
+# needs ~25-40. Each model has its OWN daily quota on the same key, so roles are
+# split across Flash models (decision by the project owner, 2026-11-17):
+#   independent judgment (Reviewer, Security, eval judge) -> newest Flash
+#   requirements/planning                                 -> previous Flash
+#   implementation/test analysis                          -> older Flash
+#   evidence consolidation                                -> Flash-Lite
+# The contracts name these symbols; the IDs live only here.
 FLASH_MODEL = os.getenv("FACTORY_MODEL", "gemini-3.8-flash")
+PLANNING_MODEL = os.getenv("FACTORY_PLANNING_MODEL", "gemini-3.7-flash")
+CODING_MODEL = os.getenv("FACTORY_CODING_MODEL", "gemini-3.5-flash")
 LITE_MODEL = os.getenv("FACTORY_LITE_MODEL", "gemini-3.5-flash-lite")
 JUDGE_MODEL = FLASH_MODEL  # keep in sync with tests/eval/eval_config.yaml
 
 AGENT_MODELS: dict[str, str] = {
-    "intake": FLASH_MODEL,
-    "planner": FLASH_MODEL,
-    "coder": FLASH_MODEL,
-    "test_analyst": FLASH_MODEL,
+    "intake": PLANNING_MODEL,
+    "planner": PLANNING_MODEL,
+    "coder": CODING_MODEL,
+    "test_analyst": CODING_MODEL,
     "reviewer": FLASH_MODEL,
     "security": FLASH_MODEL,
     "evidence": LITE_MODEL,  # consolidation only

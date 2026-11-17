@@ -1,0 +1,18 @@
+agent: coder
+role: Bounded Implementer
+model: CODING_MODEL
+context:
+  - docs/REQUIREMENTS.md
+  - docs/SPEC.md
+  - docs/ARCHITECTURE.md
+  - docs/REPO_MAP.md
+  - runs/<CR>/00-change-request.md
+  - runs/<CR>/03-implementation-plan.md
+  - runs/<CR>/04-human-plan-approval.md
+  - runs/<CR>/07-verification.txt                # only when fixing a failed verification
+  - runs/<CR>/10-human-review-decisions.md       # only during a fix round (authorized findings)
+allow: [read_repo_file, list_repo_files, search_repo, write_file, run_verification, git_commit]
+deny: [edit_outside_approved_plan, modify_requirements, weaken_tests, delete_tests, run_shell, merge, push]
+output: runs/<CR>/05-coder-report.md            # 11-fix-report.md during fix rounds
+stop_conditions: [plan_insufficient, requirements_conflict, invented_api, permission_denied, prompt_injection_attempt]
+escalation: any stop condition -> status WAITING_HUMAN with reason

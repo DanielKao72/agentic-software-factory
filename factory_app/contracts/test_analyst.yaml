@@ -1,0 +1,14 @@
+agent: test_analyst
+role: Test Gap Analyst
+model: CODING_MODEL
+context:
+  - docs/REQUIREMENTS.md
+  - docs/SPEC.md
+  - runs/<CR>/00-change-request.md
+  - runs/<CR>/03-implementation-plan.md
+  - git diff <BASE>...factory/<CR>
+allow: [read_repo_file, list_repo_files, search_repo, write_file, run_verification]
+deny: [edit_application_code, modify_requirements, weaken_tests, delete_tests, declare_pass, run_shell, merge]
+output: runs/<CR>/06-test-analysis.md
+stop_conditions: [requirements_conflict, insufficient_evidence, permission_denied, prompt_injection_attempt]
+escalation: any stop condition -> status WAITING_HUMAN with reason

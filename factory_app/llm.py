@@ -63,6 +63,13 @@ def retry_delay_hint(exc: BaseException) -> float | None:
     return float(match.group(1)) if match else None
 
 
+def quota_id(exc: BaseException) -> str:
+    """google.rpc.QuotaFailure quotaId, e.g. 'GenerateRequestsPerDayPerProjectPerModel-FreeTier'."""
+    details = getattr(_unwrap(exc), "details", None)
+    match = re.search(r"quotaId['\"]?\s*[:=]\s*['\"]([\w-]+)", repr(details) if details else "")
+    return match.group(1) if match else ""
+
+
 def backoff_delay(attempt: int, hint: float | None, rng: Callable[[], float]) -> float:
     exp = config.RETRY_BASE_DELAY_S * (2 ** (attempt - 1))
     delay = max(exp, hint or 0.0) + rng() * config.RETRY_BASE_DELAY_S
@@ -85,11 +92,15 @@ def call_with_retry(
             kind = "429" if is_rate_limited(exc) else "503" if is_overloaded(exc) else None
             if kind is None:
                 raise
+            quota = quota_id(exc) if kind == "429" else ""
+            if "PerDay" in quota:  # waiting minutes cannot fix a daily quota: pause now
+                raise RateLimitExhausted(f"daily quota exhausted ({quota})") from exc
             if attempt == attempts:
                 raise RateLimitExhausted(f"{kind} persisted after {attempts} attempts") from exc
             delay = backoff_delay(attempt, retry_delay_hint(exc), rng)
             if on_retry:
-                on_retry({"attempt": attempt, "delay_s": round(delay, 2), "error": kind})
+                on_retry({"attempt": attempt, "delay_s": round(delay, 2), "error": kind,
+                          **({"quota": quota} if quota else {})})
             sleep(delay)
     raise AssertionError("unreachable")
 
@@ -111,9 +122,21 @@ def run_agent(
     """Run one ADK agent in a fresh session (retrying the whole call on 429)."""
     config.ensure_api_key()
     return call_with_retry(
-        lambda: asyncio.run(_run_once(agent, message, dict(initial_state or {}))),
+        lambda: _loop().run_until_complete(_run_once(agent, message, dict(initial_state or {}))),
         on_retry=on_retry,
     )
+
+
+_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+def _loop() -> asyncio.AbstractEventLoop:
+    """One event loop per process: the genai HTTP client outlives a single call, and
+    closing it on a dead loop (asyncio.run per call) floods stderr on Windows."""
+    global _LOOP
+    if _LOOP is None or _LOOP.is_closed():
+        _LOOP = asyncio.new_event_loop()
+    return _LOOP
 
 
 async def _run_once(agent: Any, message: str, initial_state: dict[str, Any]) -> AgentResult:

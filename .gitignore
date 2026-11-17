@@ -9,3 +9,6 @@ runs/*
 !runs/README.md
 *.db
 .DS_Store
+# factory worktrees (one per run, branch factory/CR-XXX)
+.factory/
+!runs/dashboard.html

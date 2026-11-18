@@ -11,6 +11,7 @@ context:
   - runs/<CR>/04-human-plan-approval.md
   - runs/<CR>/07-verification.txt                # only when fixing a failed verification
   - runs/<CR>/10-human-review-decisions.md       # only during a fix round (authorized findings)
+  - runs/<CR>/human-interventions.md             # only after a human `factory rework`
 allow: [read_repo_file, list_repo_files, search_repo, write_file, run_verification, git_commit]
 deny: [edit_outside_approved_plan, modify_requirements, weaken_tests, delete_tests, run_shell, merge, push]
 output: runs/<CR>/05-coder-report.md            # 11-fix-report.md during fix rounds

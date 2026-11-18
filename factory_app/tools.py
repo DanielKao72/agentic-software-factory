@@ -14,13 +14,20 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from . import gitops
 from .config import REPO_ROOT
-from .permissions import ADK_NAMES, READ_ROOTS, PermissionDenied, check_read, require
+from .permissions import (
+    ADK_NAMES,
+    READ_ROOTS,
+    PermissionDenied,
+    check_read,
+    check_write,
+    require,
+)
 
 MAX_READ_CHARS = 40_000
 MAX_SEARCH_HITS = 50
 BINARY_SUFFIXES = {".db", ".png", ".jpg", ".jpeg", ".zip", ".pdf", ".pyc", ".sqlite"}
-WORKTREES = REPO_ROOT / ".factory" / "worktrees"
 
 
 # --- helpers -----------------------------------------------------------------
@@ -36,14 +43,22 @@ def _state(tool_context: Any) -> dict:
 
 
 def _workspace(tool_context: Any) -> Path:
-    """Repo root, or the run's git worktree (M2+). Must live under .factory/worktrees."""
+    """Repo root, or the run's git worktree. A worktree must be <repo>/.factory/worktrees/<CR>."""
     ws = _state(tool_context).get("workspace")
     if not ws:
         return REPO_ROOT
-    path = (REPO_ROOT / ws).resolve()
-    if WORKTREES.resolve() not in path.parents:
-        raise PermissionDenied("workspace outside .factory/worktrees")
+    path = Path(ws).resolve()
+    if (path.parent.name, path.parent.parent.name) != ("worktrees", ".factory"):
+        raise PermissionDenied("workspace is not a factory worktree")
     return path
+
+
+class LocalToolContext:
+    """Minimal stand-in for ADK's ToolContext (ScriptedRunner, tests)."""
+
+    def __init__(self, agent_name: str, state: dict):
+        self.agent_name = agent_name
+        self.state = state
 
 
 def _log(tool_context: Any, entry: dict) -> None:
@@ -198,10 +213,103 @@ def write_run_evidence(filename: str, content: str, tool_context: Any = None) ->
     return {"ok": True, "path": f"runs/{change_id}/{filename}"}
 
 
+# --- bounded write / exec tools (Coder, Test Analyst) --------------------------------
+
+MAX_WRITE_CHARS = 60_000
+
+
+def _require_worktree(tool_context: Any) -> Path:
+    if not _state(tool_context).get("workspace"):
+        raise PermissionDenied("no factory worktree in this session; writes are disabled")
+    return _workspace(tool_context)
+
+
+def write_file(relative_path: str, content: str, tool_context: Any = None) -> dict:
+    """Create/overwrite one file. Coder: only files in the approved plan (campusflow/,
+    tests/). Test Analyst: tests/ only. Everything else is DENIED."""
+    agent = _agent(tool_context)
+    try:
+        ws = _require_worktree(tool_context)
+        rel = check_write(agent, relative_path, _state(tool_context).get("plan_files"))
+        if len(content) > MAX_WRITE_CHARS:
+            raise PermissionDenied(f"content too large ({len(content)} chars)")
+    except PermissionDenied as exc:
+        return _denied(tool_context, "write_file", relative_path, exc)
+    path = ws / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    _log(tool_context, {"tool": "write_file", "target": rel, "ok": True})
+    return {"ok": True, "path": rel, "chars": len(content)}
+
+
+def run_verification(tool_context: Any = None) -> dict:
+    """Run pytest + ruff in the run's worktree (fixed commands, no arguments).
+    Informational only: the orchestrator's verification gate decides PASS/FAIL."""
+    import sys
+
+    try:
+        require(_agent(tool_context), "exec_verify")
+        ws = _require_worktree(tool_context)
+    except PermissionDenied as exc:
+        return _denied(tool_context, "run_verification", "", exc)
+    results = {}
+    for name, argv in (
+        ("pytest", [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]),
+        ("ruff", [sys.executable, "-m", "ruff", "check", "campusflow", "tests"]),
+    ):
+        done = subprocess.run(argv, cwd=ws, text=True, capture_output=True, timeout=600,
+                              check=False)
+        results[name] = {"returncode": done.returncode,
+                         "output_tail": (done.stdout + done.stderr)[-4000:]}
+    _log(tool_context, {"tool": "run_verification", "target": "pytest+ruff", "ok": True})
+    return {"ok": True, "results": results,
+            "note": "Informational. Only the deterministic verification gate decides PASS."}
+
+
+def git_commit(message: str, tool_context: Any = None) -> dict:
+    """Commit all current changes on factory/<CR>. Every changed path is re-checked
+    against your write permissions; if any is not allowed, nothing is committed."""
+    agent = _agent(tool_context)
+    try:
+        require(agent, "git_commit")
+        ws = _require_worktree(tool_context)
+        changed = gitops.dirty_files(ws)
+        if not changed:
+            raise PermissionDenied("nothing to commit")
+        plan = _state(tool_context).get("plan_files")
+        for path in changed:
+            check_write(agent, path, plan)
+        cr = _state(tool_context).get("change_id", "CR-???")
+        sha = gitops.commit(ws, changed, f"[{cr}] {message.strip()[:200]}", agent)
+    except (PermissionDenied, gitops.GitError) as exc:
+        return _denied(tool_context, "git_commit", message[:80], exc)
+    _log(tool_context, {"tool": "git_commit", "target": sha[:12], "ok": True})
+    return {"ok": True, "commit": sha, "files": changed}
+
+
+def git_diff(tool_context: Any = None) -> dict:
+    """Diff of factory/<CR> against its base commit (read-only)."""
+    try:
+        require(_agent(tool_context), "git_diff")
+        ws = _require_worktree(tool_context)
+        base = _state(tool_context).get("base_sha", "")
+        if not re.fullmatch(r"[0-9a-f]{40}", base):
+            raise PermissionDenied("no base commit in session")
+        text = gitops.diff(ws, base)
+    except (PermissionDenied, gitops.GitError) as exc:
+        return _denied(tool_context, "git_diff", "", exc)
+    _log(tool_context, {"tool": "git_diff", "target": f"{base[:12]}...HEAD", "ok": True})
+    return {"ok": True, "diff": text}
+
+
 # Contract `allow:` names -> callables. Tools for later milestones are added here.
 TOOL_REGISTRY = {
     "read_repo_file": read_repo_file,
     "list_repo_files": list_repo_files,
     "search_repo": search_repo,
     "write_run_evidence": write_run_evidence,
+    "write_file": write_file,
+    "run_verification": run_verification,
+    "git_commit": git_commit,
+    "git_diff": git_diff,
 }

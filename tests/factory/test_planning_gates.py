@@ -63,7 +63,8 @@ def test_clarify_reruns_intake_with_policy_then_plans(make_orch, runs_dir):
 
 
 def test_plan_approval_requires_reason_and_name_and_records_evidence(make_orch, runs_dir):
-    orch = make_orch("CR-003", intake=[INTAKE_PROCEED], planner=[PLAN_READY])
+    stop = reply("ESCALATE", {"reason": "test stops at the Coder"})
+    orch = make_orch("CR-003", intake=[INTAKE_PROCEED], planner=[PLAN_READY], coder=[stop])
     orch.start()
     with pytest.raises(GateError, match="reason"):
         orch.approve_plan("APPROVED", "  ", "TL")
@@ -72,7 +73,8 @@ def test_plan_approval_requires_reason_and_name_and_records_evidence(make_orch, 
     with pytest.raises(GateError, match="one of"):
         orch.approve_plan("LGTM", "ok", "TL")
     st = orch.approve_plan("APPROVED", "Scope matches CR-003", "Ana / Tech Lead")
-    assert st["status"] == "IMPLEMENTING"  # Coder stage arrives in M2; it stops here
+    assert st["status"] == "WAITING_HUMAN" and st["escalated_from"] == "IMPLEMENTING"
+    assert [c["agent"] for c in orch.runner.calls] == ["intake", "planner", "coder"]
     assert st["human_gates"] == {"requirements": "APPROVED", "plan": "APPROVED",
                                  "review": "PENDING", "release": "PENDING"}
     approval = (runs_dir / "CR-003" / "04-human-plan-approval.md").read_text()

@@ -28,7 +28,8 @@ def test_approve_without_name_is_rejected(waiting_plan):
 def test_starter_approve_gate_script_now_requires_by_and_uses_orchestrator(waiting_plan):
     with pytest.raises(SystemExit):
         approve_gate_main(["CR-003", "plan", "APPROVED", "Plan reviewed"])
-    assert approve_gate_main(["CR-003", "plan", "APPROVED", "Plan reviewed",
+    # REJECTED keeps this test away from the Coder stage (it would need an LLM).
+    assert approve_gate_main(["CR-003", "plan", "REJECTED", "Out of scope this sprint",
                               "--by", "Ana / Tech Lead"]) == 0
     assert (waiting_plan / "CR-003" / "04-human-plan-approval.md").exists()
 

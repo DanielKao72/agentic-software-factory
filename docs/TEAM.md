@@ -6,10 +6,10 @@ Agents propose; people decide. Every gate decision is recorded with a name and a
 
 | Role | Assigned to | Responsibility | Decides at |
 |---|---|---|---|
-| Product Owner | _pending_ | Owns requirements and resolves ambiguity | Gate 0, Gate 1 |
-| Tech Lead | _pending_ | Checks that the plan is technically sound and in scope | Gate 1 |
-| Human Reviewer | _pending_ | Accepts, rejects, modifies or defers each finding | Gate 2 |
-| Release Manager | _pending_ | Decides READY or NOT_READY; a person performs any merge | Gate 3 |
+| Product Owner | Frida Pineda | Owns requirements and resolves ambiguity | Gate 0, Gate 1 |
+| Tech Lead | Daniel Kao | Checks that the plan is technically sound and in scope | Gate 1 |
+| Human Reviewer | Andrea Góngora | Accepts, rejects, modifies or defers each finding | Gate 2 |
+| Release Manager | Frida Pineda | Decides READY or NOT_READY; a person performs any merge | Gate 3 |
 
 ## Agents
 

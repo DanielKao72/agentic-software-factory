@@ -5,8 +5,8 @@
 - [ ] T03 Run Intake/Planner in ADK.
 - [ ] T04 Execute CR-001 through planning.
 - [x] T05 Implement human plan gate pause/resume.
-- [ ] T06 Add bounded write capability for Coder.
-- [ ] T07 Wire deterministic verification.
+- [x] T06 Add bounded write capability for Coder.
+- [x] T07 Wire deterministic verification.
 - [ ] T08 Run Reviewer + Security independently.
 - [ ] T09 Implement human finding decisions.
 - [ ] T10 Implement fix -> reverify -> rereview.

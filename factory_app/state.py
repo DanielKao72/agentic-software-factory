@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
@@ -138,8 +139,21 @@ def save(run_dir: Path, state: dict) -> None:
     path = run_dir / "factory-state.json"
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
-    os.replace(tmp, path)
+    _replace_with_retry(tmp, path)
     _update_index(run_dir.parent, state)
+
+
+def _replace_with_retry(source: Path, target: Path, attempts: int = 6) -> None:
+    """On Windows os.replace can briefly fail with access denied; a checkpoint must not
+    crash the run for that. Any other error, or a lasting one, still raises."""
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.05 * 2**attempt)
 
 
 def load(run_dir: Path) -> dict:

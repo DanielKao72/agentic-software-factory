@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from factory_app.state import (
@@ -6,7 +8,9 @@ from factory_app.state import (
     HumanDecisionRequired,
     IllegalTransition,
     Status,
+    load,
     new_state,
+    save,
     transition,
 )
 
@@ -72,3 +76,33 @@ def test_escalation_remembers_where_it_came_from():
     st = new_state("CR-001", "main", 2)
     transition(st, S.WAITING_HUMAN, "unparseable report")
     assert st["escalated_from"] == "INTAKE_PENDING"
+
+
+def _flaky_replace(monkeypatch, failures):
+    real_replace = os.replace
+    calls = []
+
+    def replace(source, target):
+        calls.append(source)
+        if len(calls) <= failures:
+            raise PermissionError("access denied")
+        real_replace(source, target)
+
+    monkeypatch.setattr("factory_app.state.os.replace", replace)
+    monkeypatch.setattr("factory_app.state.time.sleep", lambda _delay: None)
+    return calls
+
+
+def test_checkpoint_survives_a_transient_access_denied(tmp_path, monkeypatch):
+    calls = _flaky_replace(monkeypatch, failures=2)
+    st = new_state("CR-001", "main", 2)
+    save(tmp_path, st)
+    assert len(calls) == 3
+    assert load(tmp_path)["change_id"] == "CR-001"
+
+
+def test_checkpoint_reports_a_lasting_access_denied(tmp_path, monkeypatch):
+    calls = _flaky_replace(monkeypatch, failures=99)
+    with pytest.raises(PermissionError):
+        save(tmp_path, new_state("CR-001", "main", 2))
+    assert len(calls) == 6

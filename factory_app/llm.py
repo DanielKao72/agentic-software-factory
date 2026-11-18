@@ -94,7 +94,11 @@ def call_with_retry(
                 raise
             quota = quota_id(exc) if kind == "429" else ""
             if "PerDay" in quota:  # waiting minutes cannot fix a daily quota: pause now
-                raise RateLimitExhausted(f"daily quota exhausted ({quota})") from exc
+                details = repr(getattr(_unwrap(exc), "details", ""))
+                model = re.search(r"'model': '([\w.-]+)'", details)
+                raise RateLimitExhausted(
+                    f"daily quota exhausted for {model.group(1) if model else 'model'} ({quota})"
+                ) from exc
             if attempt == attempts:
                 raise RateLimitExhausted(f"{kind} persisted after {attempts} attempts") from exc
             delay = backoff_delay(attempt, retry_delay_hint(exc), rng)

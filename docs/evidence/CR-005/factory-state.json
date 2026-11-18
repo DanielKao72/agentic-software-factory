@@ -1,0 +1,52 @@
+{
+  "change_id": "CR-005",
+  "created_at": "2026-11-17T22:59:47+00:00",
+  "updated_at": "2026-11-17T23:09:23+00:00",
+  "branch": "factory/CR-005",
+  "base_branch": "main",
+  "status": "WAITING_CLARIFICATION",
+  "status_reason": "intake: 4 question(s) for the Product Owner",
+  "escalated_from": null,
+  "fix_round": 0,
+  "max_fix_rounds": 2,
+  "iterations": 0,
+  "requirements": "NEEDS_CLARIFICATION",
+  "plan": "PENDING",
+  "implementation": "PENDING",
+  "test_analysis": "PENDING",
+  "verification": {
+    "status": "NOT_RUN"
+  },
+  "review": {
+    "status": "pending",
+    "must_fix": 0,
+    "should_fix": 0
+  },
+  "security": {
+    "status": "pending",
+    "high": 0,
+    "medium": 0
+  },
+  "human_gates": {
+    "requirements": "PENDING",
+    "plan": "PENDING",
+    "review": "PENDING",
+    "release": "PENDING"
+  },
+  "decisions": [],
+  "metrics": {
+    "llm_calls": 2,
+    "rate_limit_retries": 0,
+    "overload_retries": 4,
+    "human_interventions": 0,
+    "coder_review_iterations": 0
+  },
+  "history": [
+    {
+      "at": "2026-11-17T23:09:23+00:00",
+      "from": "INTAKE_PENDING",
+      "to": "WAITING_CLARIFICATION",
+      "reason": "intake: 4 question(s) for the Product Owner"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{"at": "2026-11-17T22:59:47+00:00", "event": "run_created", "source": "CR-005-ambiguous-priority.md"}
+{"at": "2026-11-17T22:59:47+00:00", "event": "agent_started", "agent": "intake", "provided": ["docs/REQUIREMENTS.md", "docs/SPEC.md", "docs/ARCHITECTURE.md", "docs/REPO_MAP.md", "runs/CR-005/00-change-request.md"]}
+{"at": "2026-11-17T23:01:35+00:00", "event": "model_retry", "attempt": 1, "delay_s": 2.99, "error": "503"}
+{"at": "2026-11-17T23:01:40+00:00", "event": "model_retry", "attempt": 2, "delay_s": 5.19, "error": "503"}
+{"at": "2026-11-17T23:01:49+00:00", "event": "model_retry", "attempt": 3, "delay_s": 8.94, "error": "503"}
+{"at": "2026-11-17T23:04:23+00:00", "event": "model_retry", "attempt": 4, "delay_s": 16.01, "error": "503"}
+{"at": "2026-11-17T23:09:23+00:00", "event": "agent_finished", "agent": "intake", "verdict": "HUMAN_CLARIFICATION_REQUIRED", "error": ""}
+{"at": "2026-11-17T23:09:23+00:00", "event": "transition", "to": "WAITING_CLARIFICATION", "reason": "intake: 4 question(s) for the Product Owner", "by": "orchestrator"}

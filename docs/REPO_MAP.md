@@ -24,4 +24,6 @@
 | `tests/product/` | CampusFlow tests |
 | `tests/factory/` | Deterministic factory tests (gates, permissions, state machine) |
 | `tests/eval/` | Agent evaluation datasets |
-| `runs/` | Generated evidence (one folder per Change Request) |
+| `runs/` | Generated evidence (one folder per Change Request, not versioned) |
+| `docs/TEAM.md` | Human roles, gate owners and agent responsibilities |
+| `docs/evidence/` | Versioned copies of selected run evidence |
